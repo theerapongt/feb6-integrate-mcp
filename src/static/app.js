@@ -1,8 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
   const activitiesList = document.getElementById("activities-list");
-  const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  const activityInput = document.getElementById("activity");
   
   // Auth elements
   const userIcon = document.getElementById("user-icon");
@@ -16,7 +16,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const loggedOutState = document.getElementById("logged-out-state");
   const usernameDisplay = document.getElementById("username-display");
   const loginMessage = document.getElementById("login-message");
-  const signupContainer = document.getElementById("signup-container");
+  
+  // Registration modal elements
+  const registrationModal = document.getElementById("registration-modal");
+  const closeRegistrationBtn = document.querySelector(".close-registration-btn");
+  const registrationModalTitle = document.getElementById("registration-modal-title");
 
   // Auth state
   let authToken = sessionStorage.getItem("authToken");
@@ -59,11 +63,9 @@ document.addEventListener("DOMContentLoaded", () => {
       loggedInState.classList.remove("hidden");
       loggedOutState.classList.add("hidden");
       usernameDisplay.textContent = `Logged in as: ${username}`;
-      signupContainer.classList.remove("hidden");
     } else {
       loggedInState.classList.add("hidden");
       loggedOutState.classList.remove("hidden");
-      signupContainer.classList.add("hidden");
     }
   }
 
@@ -100,6 +102,18 @@ document.addEventListener("DOMContentLoaded", () => {
       loginForm.reset();
       loginMessage.classList.add("hidden");
     }
+    if (e.target === registrationModal) {
+      registrationModal.classList.add("hidden");
+      signupForm.reset();
+      messageDiv.classList.add("hidden");
+    }
+  });
+
+  // Close registration modal
+  closeRegistrationBtn.addEventListener("click", () => {
+    registrationModal.classList.add("hidden");
+    signupForm.reset();
+    messageDiv.classList.add("hidden");
   });
 
   // Handle login form submission
@@ -206,6 +220,11 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>`
             : `<p><em>No participants yet</em></p>`;
 
+        // Create register button if authenticated
+        const registerButtonHTML = isAuthenticated
+          ? `<button class="register-btn" data-activity="${name}">Register Student</button>`
+          : "";
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
@@ -214,15 +233,10 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="participants-container">
             ${participantsHTML}
           </div>
+          ${registerButtonHTML}
         `;
 
         activitiesList.appendChild(activityCard);
-
-        // Add option to select dropdown
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        activitySelect.appendChild(option);
       });
 
       // Add event listeners to delete buttons (only if authenticated)
@@ -230,12 +244,30 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll(".delete-btn").forEach((button) => {
           button.addEventListener("click", handleUnregister);
         });
+
+        // Add event listeners to register buttons
+        document.querySelectorAll(".register-btn").forEach((button) => {
+          button.addEventListener("click", handleRegisterClick);
+        });
       }
     } catch (error) {
       activitiesList.innerHTML =
         "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
     }
+  }
+
+  // Handle register button click
+  function handleRegisterClick(event) {
+    const button = event.target;
+    const activity = button.getAttribute("data-activity");
+    
+    // Set the activity in the hidden input
+    activityInput.value = activity;
+    registrationModalTitle.textContent = `Register Student for ${activity}`;
+    
+    // Show the registration modal
+    registrationModal.classList.remove("hidden");
   }
 
   // Handle unregister functionality
@@ -289,7 +321,7 @@ document.addEventListener("DOMContentLoaded", () => {
     event.preventDefault();
 
     const email = document.getElementById("email").value;
-    const activity = document.getElementById("activity").value;
+    const activity = activityInput.value;
 
     try {
       const response = await fetch(
@@ -313,6 +345,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Refresh activities list to show updated participants
         fetchActivities();
+
+        // Close the modal after a short delay
+        setTimeout(() => {
+          registrationModal.classList.add("hidden");
+          messageDiv.classList.add("hidden");
+        }, 1500);
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -320,19 +358,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
       messageDiv.classList.remove("hidden");
 
-      // Hide message after 5 seconds
-      setTimeout(() => {
-        messageDiv.classList.add("hidden");
-      }, 5000);
+      // Hide error message after 5 seconds (success messages close with modal)
+      if (!response.ok) {
+        setTimeout(() => {
+          messageDiv.classList.add("hidden");
+        }, 5000);
+      }
     } catch (error) {
       messageDiv.textContent = "Failed to sign up. Please try again.";
       messageDiv.className = "error";
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
     }
-  checkAuthStatus();
   });
 
   // Initialize app
+  checkAuthStatus();
   fetchActivities();
 });
